@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>우리의 설화</title>
+  <meta name="description" content="간단한 일기/블로그 웹앱 — 작성, 편집, 삭제, 로컬 저장(localStorage)" />
+  <style>
+    :root{
+      --bg: #0f1724;
+      --card: #0b1220;
+      --muted: #9aa4b2;
+      --accent: linear-gradient(90deg,#7b61ff,#ff6b8a);
+      --glass: rgba(255,255,255,0.03);
+      --glass-2: rgba(255,255,255,0.04);
+      --radius: 14px;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    }
+
+    html,body{height:100%;}
+    body{
+      margin:0;
+      background: radial-gradient(1200px 600px at 10% 10%, rgba(123,97,255,0.08), transparent),
+                  radial-gradient(1000px 400px at 90% 90%, rgba(255,107,138,0.06), transparent),
+                  var(--bg);
+      color:#e6eef6;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+      padding:28px;
+      box-sizing:border-box;
+    }
+
+    .container{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:1fr 380px;gap:24px;align-items:flex-start}
+
+    header{grid-column:1 / -1;display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+    .brand{display:flex;gap:14px;align-items:center}
+    .logo{width:56px;height:56px;border-radius:12px;background:var(--accent);display:grid;place-items:center;font-weight:700;color:#fff;box-shadow:0 6px 18px rgba(11,10,18,0.6)}
+    h1{font-size:20px;margin:0}
+    p.lead{margin:0;color:var(--muted);font-size:13px}
+
+    /* left column (posts) */
+    main{background:linear-gradient(180deg, rgba(255,255,255,0.02), transparent);border-radius:var(--radius);padding:18px;box-shadow:0 6px 30px rgba(2,6,23,0.6)}
+
+    .controls{display:flex;gap:10px;align-items:center;margin-bottom:14px}
+    .search{flex:1;display:flex;gap:8px;align-items:center;background:var(--glass);padding:8px;border-radius:10px}
+    .search input{background:transparent;border:0;outline:none;color:inherit;font-size:14px;width:100%}
+    button.btn{background:var(--glass);border:0;padding:10px 12px;border-radius:10px;color:inherit;cursor:pointer}
+    button.primary{background:var(--accent);padding:10px 14px;border-radius:10px;color:white;border:0;font-weight:600;box-shadow:0 6px 18px rgba(123,97,255,0.12)}
+
+    .posts{display:grid;gap:12px}
+    .post{background:var(--card);padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,0.02);box-shadow:0 6px 14px rgba(2,6,23,0.5)}
+    .post h3{margin:0 0 6px 0;font-size:16px}
+    .meta{font-size:12px;color:var(--muted);display:flex;gap:8px;align-items:center}
+    .excerpt{margin-top:8px;color:#d7e3f4;font-size:14px;white-space:pre-wrap}
+    .post .actions{margin-top:10px;display:flex;gap:8px}
+
+    /* right column (composer + filters) */
+    aside{position:relative}
+    .card{background:linear-gradient(180deg, rgba(255,255,255,0.02), transparent);padding:16px;border-radius:12px;border:1px solid rgba(255,255,255,0.02);box-shadow:0 6px 24px rgba(2,6,23,0.5)}
+    label{font-size:13px;color:var(--muted);display:block;margin-bottom:6px}
+    input[type=text], textarea, select{width:100%;padding:8px;border-radius:10px;border:0;background:var(--glass-2);color:inherit;font-size:14px;outline:none}
+    textarea{min-height:140px;resize:vertical}
+    .small{font-size:13px;color:var(--muted);margin-top:8px}
+
+    /* modal */
+    .modal{position:fixed;inset:0;display:grid;place-items:center;background:rgba(2,6,23,0.6);z-index:80;visibility:hidden;opacity:0;transition:opacity .18s}
+    .modal.open{visibility:visible;opacity:1}
+    .modal .sheet{width:min(920px,95vw);background:var(--card);padding:18px;border-radius:16px}
+
+    /* small screens */
+    @media (max-width:900px){
+      .container{grid-template-columns:1fr;}
+      aside{order:2}
+    }
+
+    footer{grid-column:1 / -1;margin-top:18px;color:var(--muted);font-size:13px;text-align:center}
+
+    /* subtle utilities */
+    .tag{display:inline-block;padding:6px 8px;border-radius:999px;background:rgba(255,255,255,0.03);font-size:12px}
+    .btn-ghost{background:transparent;border:1px solid rgba(255,255,255,0.04);padding:8px 10px;border-radius:10px}
+
+    :focus{outline:2px solid rgba(123,97,255,0.16);outline-offset:2px}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="brand">
+        <div class="logo">일기</div>
+        <div>
+          <h1>간단 일기 블로그</h1>
+          <p class="lead">작성 → 저장 → 다시 보기. 로컬 저장(localStorage)으로 작동합니다.</p>
+        </div>
+      </div>
+      <div>
+        <button id="importBtn" class="btn">가져오기</button>
+        <button id="exportBtn" class="btn">내보내기</button>
+        <button id="newBtn" class="primary">새 일기 쓰기</button>
+      </div>
+    </header>
+
+    <main>
+      <div class="controls">
+        <div class="search" role="search">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden><path stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35" /><circle cx="11" cy="11" r="6" stroke="currentColor" stroke-width="1.5"/></svg>
+          <input id="searchInput" placeholder="검색: 제목 / 내용 / 태그" />
+        </div>
+        <select id="sortSelect" class="btn">
+          <option value="new">최신순</option>
+          <option value="old">오래된 순</option>
+        </select>
+      </div>
+
+      <section class="posts" id="posts"></section>
+    </main>
+
+    <aside>
+      <div class="card">
+        <label for="title">제목</label>
+        <input id="title" type="text" placeholder="오늘의 제목을 입력하세요" />
+
+        <label for="tags">태그 (쉼표로 구분)</label>
+        <input id="tags" type="text" placeholder="예: 여행,감정" />
+
+        <label for="content">내용</label>
+        <textarea id="content" placeholder="여기에 일기를 작성하세요."></textarea>
+
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <button id="saveBtn" class="primary">저장</button>
+          <button id="previewBtn" class="btn">미리보기</button>
+          <button id="clearBtn" class="btn btn-ghost">초기화</button>
+        </div>
+
+        <p class="small">기능: 작성 → 저장하면 오른쪽 목록에 표시됩니다. 데이터는 브라우저에만 저장됩니다.</p>
+      </div>
+    </aside>
+
+    <div id="editModal" class="modal" aria-hidden="true">
+      <div class="sheet" role="dialog" aria-modal="true">
+        <h2 id="modalTitle">일기 편집</h2>
+        <label for="editTitle">제목</label>
+        <input id="editTitle" type="text" />
+        <label for="editTags">태그</label>
+        <input id="editTags" type="text" />
+        <label for="editContent">내용</label>
+        <textarea id="editContent"></textarea>
+        <div style="display:flex;gap:8px;margin-top:10px;justify-content:flex-end">
+          <button id="cancelEdit" class="btn">취소</button>
+          <button id="confirmEdit" class="primary">저장</button>
+        </div>
+      </div>
+    </div>
+
+    <footer>로컬 저장 기능 — 데이터를 잃지 않으려면 내보내기를 권장합니다.</footer>
+  </div>
+
+  <script>
+    // 간단한 일기/블로그 웹앱 스크립트
+    (function(){
+      const LS_KEY = 'simple-diary-posts-v1';
+      let posts = [];
+      let editingId = null;
+
+      // DOM elements
+      const postsEl = document.getElementById('posts');
+      const titleEl = document.getElementById('title');
+      const tagsEl = document.getElementById('tags');
+      const contentEl = document.getElementById('content');
+      const saveBtn = document.getElementById('saveBtn');
+      const clearBtn = document.getElementById('clearBtn');
+      const previewBtn = document.getElementById('previewBtn');
+      const newBtn = document.getElementById('newBtn');
+      const searchInput = document.getElementById('searchInput');
+      const sortSelect = document.getElementById('sortSelect');
+      const exportBtn = document.getElementById('exportBtn');
+      const importBtn = document.getElementById('importBtn');
+
+      // edit modal
+      const editModal = document.getElementById('editModal');
+      const editTitle = document.getElementById('editTitle');
+      const editTags = document.getElementById('editTags');
+      const editContent = document.getElementById('editContent');
+      const cancelEdit = document.getElementById('cancelEdit');
+      const confirmEdit = document.getElementById('confirmEdit');
+
+      // util: format date
+      function fmtDate(ts){
+        const d = new Date(ts);
+        return d.toLocaleString('ko-KR', {year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+      }
+
+      // simple markdown-like parser (bold, italic, links, line breaks)
+      function miniMarkdown(raw){
+        if(!raw) return '';
+        const esc = raw
+          .replace(/&/g,'&amp;')
+          .replace(/</g,'&lt;')
+          .replace(/>/g,'&gt;');
+        // links [text](url)
+        let out = esc.replace(/\[(.*?)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+        // bold **text**
+        out = out.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        // italic *text*
+        out = out.replace(/\*(.*?)\*/g, '<em>$1</em>');
+        // line breaks
+        out = out.replace(/\n/g,'<br/>');
+        return out;
+      }
+
+      function saveToStorage(){
+        try{localStorage.setItem(LS_KEY, JSON.stringify(posts));}catch(e){console.error('저장 실패',e)}
+      }
+
+      function loadFromStorage(){
+        try{
+          const raw = localStorage.getItem(LS_KEY);
+          posts = raw ? JSON.parse(raw) : [];
+        }catch(e){posts=[]}
+      }
+
+      function render(){
+        // filter & sort
+        const q = searchInput.value.trim().toLowerCase();
+        const sort = sortSelect.value;
+        let list = posts.slice();
+        if(q){
+          list = list.filter(p=> (p.title||'').toLowerCase().includes(q) || (p.content||'').toLowerCase().includes(q) || (p.tags||[]).join(',').toLowerCase().includes(q));
+        }
+        list.sort((a,b)=> sort==='new' ? b.created - a.created : a.created - b.created);
+
+        postsEl.innerHTML = '';
+        if(list.length===0){ postsEl.innerHTML = '<p style="color:var(--muted)">저장된 일기가 없습니다. 새 일기를 작성해보세요.</p>'; return }
+
+        for(const p of list){
+          const el = document.createElement('article');
+          el.className = 'post';
+          el.innerHTML = `
+            <h3>${escapeHtml(p.title||'제목 없음')}</h3>
+            <div class="meta">
+              <div>${fmtDate(p.created)}</div>
+              <div>•</div>
+              <div>${(p.tags||[]).map(t=>`<span class="tag">${escapeHtml(t)}</span>`).join(' ')}</div>
+            </div>
+            <div class="excerpt">${miniMarkdown(truncate(p.content||'', 400))}</div>
+            <div class="actions">
+              <button data-id="${p.id}" class="btn" data-action="view">보기</button>
+              <button data-id="${p.id}" class="btn" data-action="edit">편집</button>
+              <button data-id="${p.id}" class="btn" data-action="delete">삭제</button>
+            </div>
+          `;
+          postsEl.appendChild(el);
+        }
+      }
+
+      function truncate(text, len){
+        if(!text) return '';
+        return text.length>len ? text.slice(0,len)+'... (계속)' : text;
+      }
+
+      function escapeHtml(s){
+        return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      }
+
+      // create
+      saveBtn.addEventListener('click', ()=>{
+        const title = titleEl.value.trim();
+        const tags = tagsEl.value.split(',').map(t=>t.trim()).filter(Boolean);
+        const content = contentEl.value.trim();
+        if(!title && !content){ alert('제목 또는 내용을 입력하세요.'); return }
+        const post = { id: 'p_'+Date.now(), title, tags, content, created: Date.now() };
+        posts.push(post);
+        saveToStorage();
+        render();
+        // clear composer
+        titleEl.value=''; tagsEl.value=''; contentEl.value='';
+      });
+
+      // new button focuses composer
+      newBtn.addEventListener('click', ()=>{ titleEl.focus(); window.scrollTo({top:0,behavior:'smooth'}) });
+
+      // preview
+      previewBtn.addEventListener('click', ()=>{
+        const win = window.open('', '_blank', 'width=700,height=600');
+        const body = `<!doctype html><html><head><meta charset="utf-8"><title>미리보기</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:Inter,Arial;margin:20px;color:#111}h1{font-size:20px}pre{white-space:pre-wrap}</style></head><body><h1>${escapeHtml(titleEl.value||'제목 없음')}</h1><div>${miniMarkdown(escapeHtml(contentEl.value).replace(/\n/g,'<br/>'))}</div></body></html>`;
+        win.document.write(body);
+        win.document.close();
+      });
+
+      // clear composer
+      clearBtn.addEventListener('click', ()=>{ if(confirm('작성 중인 내용을 초기화할까요?')){ titleEl.value=''; tagsEl.value=''; contentEl.value=''; } });
+
+      // posts actions (view/edit/delete)
+      postsEl.addEventListener('click', (e)=>{
+        const btn = e.target.closest('button'); if(!btn) return;
+        const id = btn.getAttribute('data-id');
+        const action = btn.getAttribute('data-action');
+        const post = posts.find(p=>p.id===id);
+        if(!post) return;
+        if(action==='view'){
+          const win = window.open('', '_blank', 'width=700,height=600');
+          const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(post.title||'일기')}</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:Inter,Arial;margin:20px;color:#111}h1{font-size:20px}.meta{color:#666;font-size:13px}</style></head><body><h1>${escapeHtml(post.title||'제목 없음')}</h1><div class="meta">${fmtDate(post.created)} • ${(post.tags||[]).map(t=>`#${escapeHtml(t)}`).join(' ')}</div><hr><div>${miniMarkdown(post.content)}</div></body></html>`;
+          win.document.write(html); win.document.close();
+        } else if(action==='edit'){
+          openEditModal(post);
+        } else if(action==='delete'){
+          if(confirm('정말 삭제하시겠어요?')){ posts = posts.filter(p=>p.id!==id); saveToStorage(); render(); }
+        }
+      });
+
+      function openEditModal(post){
+        editingId = post.id;
+        editTitle.value = post.title || '';
+        editTags.value = (post.tags||[]).join(',');
+        editContent.value = post.content || '';
+        editModal.classList.add('open');
+        editModal.setAttribute('aria-hidden','false');
+      }
+      cancelEdit.addEventListener('click', ()=>{ closeEditModal(); });
+      confirmEdit.addEventListener('click', ()=>{
+        const i = posts.findIndex(p=>p.id===editingId);
+        if(i===-1) return closeEditModal();
+        posts[i].title = editTitle.value.trim();
+        posts[i].tags = editTags.value.split(',').map(t=>t.trim()).filter(Boolean);
+        posts[i].content = editContent.value.trim();
+        posts[i].updated = Date.now();
+        saveToStorage(); render(); closeEditModal();
+      });
+      function closeEditModal(){ editModal.classList.remove('open'); editModal.setAttribute('aria-hidden','true'); editingId = null; }
+
+      // search and sort
+      searchInput.addEventListener('input', ()=>render());
+      sortSelect.addEventListener('change', ()=>render());
+
+      // export / import
+      exportBtn.addEventListener('click', ()=>{
+        const data = JSON.stringify(posts, null, 2);
+        const blob = new Blob([data],{type:'application/json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url; a.download = 'diary-export.json'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+      });
+      importBtn.addEventListener('click', ()=>{
+        const input = document.createElement('input'); input.type='file'; input.accept='application/json';
+        input.onchange = (ev)=>{
+          const f = ev.target.files[0]; if(!f) return;
+          const reader = new FileReader();
+          reader.onload = ()=>{
+            try{ const imported = JSON.parse(reader.result); if(Array.isArray(imported)){
+              // merge by id, prefer imported items
+              const map = new Map(posts.map(p=>[p.id,p]));
+              for(const it of imported){ if(it && it.id){ map.set(it.id, it); }}
+              posts = Array.from(map.values()); saveToStorage(); render(); alert('가져오기 완료');
+            } else { alert('잘못된 파일 형식입니다.'); }}catch(e){alert('파일 읽기 실패');}
+          };
+          reader.readAsText(f);
+        };
+        input.click();
+      });
+
+      // init
+      loadFromStorage(); render();
+
+    })();
+  </script>
+</body>
+</html>
