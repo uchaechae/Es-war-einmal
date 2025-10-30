@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>우리의 설화</title>
+  <title>note</title>
   <meta name="description" content="간단한 일기/블로그 웹앱 — 작성, 편집, 삭제, 로컬 저장(localStorage)" />
   <style>
     :root{
@@ -88,14 +88,14 @@
       <div class="brand">
         <div class="logo">일기</div>
         <div>
-          <h1>간단 일기 블로그</h1>
+          <h1>우리의 설화</h1>
           <p class="lead">작성 → 저장 → 다시 보기. 로컬 저장(localStorage)으로 작동합니다.</p>
         </div>
       </div>
       <div>
         <button id="importBtn" class="btn">가져오기</button>
         <button id="exportBtn" class="btn">내보내기</button>
-        <button id="newBtn" class="primary">새 일기 쓰기</button>
+        <button id="newBtn" class="primary">새로운 이야기 쓰기</button>
       </div>
     </header>
 
@@ -123,7 +123,7 @@
         <input id="tags" type="text" placeholder="예: 여행,감정" />
 
         <label for="content">내용</label>
-        <textarea id="content" placeholder="여기에 일기를 작성하세요."></textarea>
+        <textarea id="content" placeholder="여기에 이야기를 작성하세요."></textarea>
 
         <div style="display:flex;gap:8px;margin-top:10px;">
           <button id="saveBtn" class="primary">저장</button>
@@ -137,7 +137,7 @@
 
     <div id="editModal" class="modal" aria-hidden="true">
       <div class="sheet" role="dialog" aria-modal="true">
-        <h2 id="modalTitle">일기 편집</h2>
+        <h2 id="modalTitle">이야기 편집</h2>
         <label for="editTitle">제목</label>
         <input id="editTitle" type="text" />
         <label for="editTags">태그</label>
@@ -155,7 +155,7 @@
   </div>
 
   <script>
-    // 간단한 일기/블로그 웹앱 스크립트
+    // 설화 스크립트
     (function(){
       const LS_KEY = 'simple-diary-posts-v1';
       let posts = [];
@@ -303,7 +303,7 @@
         } else if(action==='edit'){
           openEditModal(post);
         } else if(action==='delete'){
-          if(confirm('정말 삭제하시겠어요?')){ posts = posts.filter(p=>p.id!==id); saveToStorage(); render(); }
+          if(confirm('정말 우리의 이야기를 지울거야?')){ posts = posts.filter(p=>p.id!==id); saveToStorage(); render(); }
         }
       });
 
